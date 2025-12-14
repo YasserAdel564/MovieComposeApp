@@ -50,14 +50,6 @@ The app follows **Clean Architecture** guidelines to separate concerns and ensur
 4.  **Build and Run**:
     Select the `app` configuration and run on an Emulator or Physical Device.
 
-## 📸 Screenshots
-
-| Home Screen | Detail Screen |
-|:-----------:|:-------------:|
-| ![Home Screen](placeholder_home.png) | ![Detail Screen](placeholder_detail.png) |
-
-*(Note: Add your actual screenshots in the details above)*
-
 ## 📄 License
 
 This project is open source and available under the [MIT License](LICENSE).
