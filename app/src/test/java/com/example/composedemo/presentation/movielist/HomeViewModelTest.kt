@@ -6,6 +6,7 @@ import com.example.composedemo.domain.usecase.GetNowPlayingMoviesUseCase
 import com.example.composedemo.domain.usecase.GetPopularMoviesUseCase
 import com.example.composedemo.domain.usecase.GetTopRatedMoviesUseCase
 import com.example.composedemo.domain.usecase.GetUpcomingMoviesUseCase
+import com.example.composedemo.presentation.home.HomeViewModel
 import com.example.composedemo.util.NetworkResult
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -16,28 +17,30 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class MovieListViewModelTest {
+class HomeViewModelTest {
 
     private val getPopularMoviesUseCase: GetPopularMoviesUseCase = mockk()
     private val getTopRatedMoviesUseCase: GetTopRatedMoviesUseCase = mockk()
     private val getUpcomingMoviesUseCase: GetUpcomingMoviesUseCase = mockk()
     private val getNowPlayingMoviesUseCase: GetNowPlayingMoviesUseCase = mockk()
-    
+
     private val testDispatcher = StandardTestDispatcher()
 
-    private lateinit var viewModel: MovieListViewModel
+    private lateinit var viewModel: HomeViewModel
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        // Default mock behavior
+        // Default mock behavior for all use cases
         coEvery { getPopularMoviesUseCase() } returns NetworkResult.Success(emptyList())
+        coEvery { getTopRatedMoviesUseCase() } returns NetworkResult.Success(emptyList())
+        coEvery { getUpcomingMoviesUseCase() } returns NetworkResult.Success(emptyList())
+        coEvery { getNowPlayingMoviesUseCase() } returns NetworkResult.Success(emptyList())
     }
 
     @After
@@ -46,24 +49,28 @@ class MovieListViewModelTest {
     }
 
     @Test
-    fun `initial state is Loading`() = runTest {
-        viewModel = MovieListViewModel(
+    fun `when ViewModel is created, uiState is loading`() = runTest {
+        // When
+        viewModel = HomeViewModel(
             getPopularMoviesUseCase,
             getTopRatedMoviesUseCase,
             getUpcomingMoviesUseCase,
             getNowPlayingMoviesUseCase
         )
-        assertTrue(viewModel.uiState.value is MovieListUiState.Loading)
+        // Then
+        Assert.assertTrue(viewModel.uiState.value.isLoading)
     }
 
     @Test
-    fun `loadMovies success updates uiState to Success`() = runTest {
-        val movies = listOf(
-            Movie(1, "Test Movie", "Desc", "path", "back", "2023", 8.0)
-        )
-        coEvery { getPopularMoviesUseCase() } returns NetworkResult.Success(movies)
+    fun `when all use cases succeed, uiState is updated with movie lists`() = runTest {
+        // Given
+        val popularMovies = listOf(Movie(1, "Popular", "Desc", "path", "back", "2023", 8.0))
+        val topRatedMovies = listOf(Movie(2, "Top Rated", "Desc", "path", "back", "2023", 9.0))
+        coEvery { getPopularMoviesUseCase() } returns NetworkResult.Success(popularMovies)
+        coEvery { getTopRatedMoviesUseCase() } returns NetworkResult.Success(topRatedMovies)
 
-        viewModel = MovieListViewModel(
+        // When
+        viewModel = HomeViewModel(
             getPopularMoviesUseCase,
             getTopRatedMoviesUseCase,
             getUpcomingMoviesUseCase,
@@ -71,19 +78,27 @@ class MovieListViewModelTest {
         )
         testDispatcher.scheduler.advanceUntilIdle()
 
+        // Then
         viewModel.uiState.test {
-            val item = awaitItem()
-            assertTrue(item is MovieListUiState.Success)
-            assertEquals(movies, (item as MovieListUiState.Success).movies)
+            val state = awaitItem()
+            Assert.assertEquals(false, state.isLoading)
+            Assert.assertEquals(popularMovies, state.popularMovies)
+            Assert.assertEquals(topRatedMovies, state.topRatedMovies)
+            Assert.assertEquals(emptyList<Movie>(), state.upcomingMovies)
+            Assert.assertEquals(emptyList<Movie>(), state.nowPlayingMovies)
+            Assert.assertNull(state.error)
+            cancelAndIgnoreRemainingEvents()
         }
     }
-    
+
     @Test
-    fun `loadMovies error updates uiState to Error`() = runTest {
+    fun `when one use case fails, uiState is updated with error`() = runTest {
+        // Given
         val errorMessage = "Network Error"
         coEvery { getPopularMoviesUseCase() } returns NetworkResult.Error(errorMessage)
 
-        viewModel = MovieListViewModel(
+        // When
+        viewModel = HomeViewModel(
             getPopularMoviesUseCase,
             getTopRatedMoviesUseCase,
             getUpcomingMoviesUseCase,
@@ -91,10 +106,12 @@ class MovieListViewModelTest {
         )
         testDispatcher.scheduler.advanceUntilIdle()
 
+        // Then
         viewModel.uiState.test {
-             val item = awaitItem()
-             assertTrue(item is MovieListUiState.Error)
-             assertEquals(errorMessage, (item as MovieListUiState.Error).message)
+            val state = awaitItem()
+            Assert.assertEquals(false, state.isLoading)
+            Assert.assertEquals(errorMessage, state.error)
+            cancelAndIgnoreRemainingEvents()
         }
     }
 }
